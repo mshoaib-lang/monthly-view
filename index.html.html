@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Affiliate Activation Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F6F3EC; --paper-raised:#FBF9F4; --ink:#1E2A33; --ink-soft:#5B6670;
+    --line:#DAD4C4; --line-strong:#C3BBA8;
+    --new:#2F6F62; --react:#B5842B; --dead:#7C3F58; --retained:#2E5C8A; --unmatched:#8A8478;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans', sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1220px;margin:0 auto;padding:36px 28px 60px;}
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:8px;flex-wrap:wrap;gap:12px;}
+  .masthead h1{font-family:'Fraunces', serif;font-weight:600;font-size:34px;margin:0;letter-spacing:-0.01em;}
+  .masthead .meta{font-family:'IBM Plex Mono', monospace;font-size:12px;color:var(--ink-soft);text-align:right;line-height:1.5;}
+  .subline{font-size:14px;color:var(--ink-soft);margin:10px 0 24px;max-width:720px;line-height:1.5;}
+
+  .banner{
+    background:#EFE7D8;border:1px solid #D8C9A3;border-left:4px solid #B5842B;
+    padding:12px 16px;border-radius:3px;font-size:12.5px;line-height:1.55;color:var(--ink);
+    margin-bottom:26px;
+  }
+  .banner b{color:#7A5A17;}
+
+  .roster{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:30px;border-bottom:1px solid var(--line);padding-bottom:22px;}
+  .chip{font-family:'IBM Plex Mono', monospace;font-size:12.5px;padding:9px 14px;border:1px solid var(--line-strong);border-radius:3px;background:var(--paper-raised);cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--ink);transition:background .15s, border-color .15s, transform .1s;user-select:none;}
+  .chip:hover{border-color:var(--ink);transform:translateY(-1px);}
+  .chip.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--ink-soft);flex-shrink:0;}
+  .chip.active .dot{background:var(--paper);}
+  .chip .n{color:var(--ink-soft);font-size:11px;}
+  .chip.active .n{color:#c9c2ae;}
+
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:30px;}
+  .card{border:1px solid var(--line-strong);border-radius:4px;padding:20px 18px 16px;background:var(--paper-raised);position:relative;overflow:hidden;}
+  .card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;}
+  .card.new::before{background:var(--new);} .card.react::before{background:var(--react);}
+  .card.dead::before{background:var(--dead);} .card.retained::before{background:var(--retained);}
+  .card .label{font-family:'IBM Plex Mono', monospace;font-size:10.5px;letter-spacing:.02em;color:var(--ink-soft);margin-bottom:4px;}
+  .card .desc{font-size:11.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;}
+  .card .figs{display:flex;align-items:baseline;gap:14px;}
+  .card .num{font-family:'Fraunces', serif;font-size:32px;font-weight:600;line-height:1;}
+  .card .num-label{font-size:10.5px;color:var(--ink-soft);display:block;margin-top:2px;}
+  .card.new .num{color:var(--new);} .card.react .num{color:var(--react);}
+  .card.dead .num{color:var(--dead);} .card.retained .num{color:var(--retained);}
+
+  .unmatched-strip{
+    display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    border:1px dashed var(--line-strong);border-radius:4px;padding:12px 18px;margin-bottom:30px;
+    background:repeating-linear-gradient(135deg, var(--paper-raised) 0px, var(--paper-raised) 10px, #F0EDE3 10px, #F0EDE3 20px);
+    font-size:12px;color:var(--ink-soft);
+  }
+  .unmatched-strip b{color:var(--unmatched);font-family:'IBM Plex Mono',monospace;}
+
+  .main-grid{display:grid;grid-template-columns:1fr;gap:24px;}
+  .panel{border:1px solid var(--line-strong);background:var(--paper-raised);border-radius:4px;padding:22px 24px 20px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .panel-head h2{font-family:'Fraunces', serif;font-size:19px;font-weight:600;margin:0;}
+  .toggle{display:flex;border:1px solid var(--line-strong);border-radius:3px;overflow:hidden;font-family:'IBM Plex Mono', monospace;font-size:11.5px;}
+  .toggle button{border:none;background:var(--paper-raised);color:var(--ink-soft);padding:7px 13px;cursor:pointer;}
+  .toggle button.active{background:var(--ink);color:var(--paper);}
+
+  .legend-row{display:flex;gap:16px;font-family:'IBM Plex Mono', monospace;font-size:11px;color:var(--ink-soft);margin-bottom:10px;flex-wrap:wrap;}
+  .legend-row span{display:flex;align-items:center;gap:6px;}
+  .legend-row i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+  canvas{max-height:320px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{text-align:right;font-family:'IBM Plex Mono', monospace;font-size:10px;color:var(--ink-soft);font-weight:500;padding:8px 8px;border-bottom:1px solid var(--ink);white-space:nowrap;}
+  thead th:first-child{text-align:left;}
+  tbody td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono', monospace;white-space:nowrap;}
+  tbody td:first-child{text-align:left;font-family:'IBM Plex Sans',sans-serif;}
+  tbody tr:hover{background:var(--paper);}
+  tbody tr.total-row td{font-weight:600;border-top:1.5px solid var(--ink);border-bottom:none;background:var(--paper);}
+  .seg-new{color:var(--new);} .seg-react{color:var(--react);} .seg-dead{color:var(--dead);} .seg-retained{color:var(--retained);}
+  .table-scroll{overflow-x:auto;}
+
+  .footnote{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-soft);line-height:1.65;}
+  .footnote b{color:var(--ink);}
+
+  @media (max-width:900px){ .cards{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:760px){ .cards{grid-template-columns:1fr;} .masthead{flex-direction:column;align-items:flex-start;} .masthead .meta{text-align:left;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <h1>Affiliate Activation Ledger</h1>
+    <div class="meta">JAN 2025 &ndash; SEP 2026<br>FIRST 20 DAYS / MONTH &middot; REV. 2</div>
+  </div>
+  <div class="subline">Monthly activation behaviour across four buckets, attributed to the account manager on record. Affiliates on the generic "Team" queue are routed to a manager by country.</div>
+
+  <div class="banner"><b>Update:</b> a 4th bucket &mdash; <b>Retained / Continuously Active</b> &mdash; has been added. These are affiliates who converted last month <i>and</i> this month, so they don't fit "new-join," "reactivation," or "first-ever activation." They were the main reason monthly totals looked low before. A prior data bug that double-counted total conversions (a stray "Total" summary row in the source file being read as an affiliate) has also been fixed.</div>
+
+  <div class="roster" id="roster"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="unmatched-strip" id="unmatched-strip"></div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="chart-title">Monthly trend</h2>
+        <div class="toggle" id="metric-toggle">
+          <button data-metric="affiliates" class="active">Affiliates</button>
+          <button data-metric="conversions">Conversions</button>
+        </div>
+      </div>
+      <div class="legend-row">
+        <span><i style="background:var(--new)"></i>New-Join Activation</span>
+        <span><i style="background:var(--react)"></i>Reactivation</span>
+        <span><i style="background:var(--dead)"></i>Lifetime-Dead Activation</span>
+        <span><i style="background:var(--retained)"></i>Retained / Continuously Active</span>
+      </div>
+      <canvas id="trendChart"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Month-by-month detail</h2></div>
+      <div class="table-scroll">
+        <table id="detail-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>New-Join<br>Aff.</th><th>New-Join<br>Conv.</th>
+              <th>Reactiv.<br>Aff.</th><th>Reactiv.<br>Conv.</th>
+              <th>Life-Dead<br>Aff.</th><th>Life-Dead<br>Conv.</th>
+              <th>Retained<br>Aff.</th><th>Retained<br>Conv.</th>
+              <th>Total<br>Aff.</th><th>Total<br>Conv.</th>
+            </tr>
+          </thead>
+          <tbody id="detail-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote" id="footnote"></div>
+</div>
+
+<script>
+const DATA = {"managers": ["All Managers", "Faizan Shaheen", "Guillermo Luna", "Hassaan Zaheer", "Salah Hassan", "Shoaib Ikram", "Syed Muhammad Faizan", "Umair Qureshi", "Usman Dar"], "segments": ["New-Join Activation", "Reactivation", "Lifetime-Dead Activation", "Retained / Continuously Active"], "months": ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"], "data": {"Faizan Shaheen": {"New-Join Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 2, "conversions": 2}, "2025-03": {"affiliates": 2, "conversions": 10}, "2025-04": {"affiliates": 1, "conversions": 18}, "2025-05": {"affiliates": 1, "conversions": 2}, "2025-06": {"affiliates": 3, "conversions": 6}, "2025-07": {"affiliates": 5, "conversions": 13}, "2025-08": {"affiliates": 1, "conversions": 1}, "2025-09": {"affiliates": 1, "conversions": 1}, "2025-10": {"affiliates": 2, "conversions": 2}, "2025-11": {"affiliates": 3, "conversions": 3}, "2025-12": {"affiliates": 2, "conversions": 6}, "2026-01": {"affiliates": 3, "conversions": 6}, "2026-02": {"affiliates": 3, "conversions": 3}, "2026-03": {"affiliates": 2, "conversions": 3}, "2026-04": {"affiliates": 2, "conversions": 4}, "2026-05": {"affiliates": 4, "conversions": 10}, "2026-06": {"affiliates": 1, "conversions": 2}, "2026-07": {"affiliates": 1, "conversions": 2}, "2026-08": {"affiliates": 3, "conversions": 3}, "2026-09": {"affiliates": 2, "conversions": 8}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 6, "conversions": 9}, "2025-04": {"affiliates": 7, "conversions": 9}, "2025-05": {"affiliates": 7, "conversions": 10}, "2025-06": {"affiliates": 13, "conversions": 16}, "2025-07": {"affiliates": 14, "conversions": 21}, "2025-08": {"affiliates": 11, "conversions": 14}, "2025-09": {"affiliates": 22, "conversions": 31}, "2025-10": {"affiliates": 11, "conversions": 12}, "2025-11": {"affiliates": 11, "conversions": 23}, "2025-12": {"affiliates": 11, "conversions": 74}, "2026-01": {"affiliates": 16, "conversions": 20}, "2026-02": {"affiliates": 13, "conversions": 16}, "2026-03": {"affiliates": 21, "conversions": 36}, "2026-04": {"affiliates": 17, "conversions": 22}, "2026-05": {"affiliates": 13, "conversions": 16}, "2026-06": {"affiliates": 8, "conversions": 9}, "2026-07": {"affiliates": 11, "conversions": 15}, "2026-08": {"affiliates": 13, "conversions": 15}, "2026-09": {"affiliates": 15, "conversions": 30}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 34, "conversions": 43}, "2025-03": {"affiliates": 33, "conversions": 170}, "2025-04": {"affiliates": 17, "conversions": 36}, "2025-05": {"affiliates": 11, "conversions": 12}, "2025-06": {"affiliates": 17, "conversions": 19}, "2025-07": {"affiliates": 18, "conversions": 25}, "2025-08": {"affiliates": 10, "conversions": 11}, "2025-09": {"affiliates": 12, "conversions": 12}, "2025-10": {"affiliates": 13, "conversions": 13}, "2025-11": {"affiliates": 10, "conversions": 12}, "2025-12": {"affiliates": 17, "conversions": 21}, "2026-01": {"affiliates": 13, "conversions": 15}, "2026-02": {"affiliates": 6, "conversions": 6}, "2026-03": {"affiliates": 10, "conversions": 11}, "2026-04": {"affiliates": 7, "conversions": 8}, "2026-05": {"affiliates": 6, "conversions": 6}, "2026-06": {"affiliates": 6, "conversions": 7}, "2026-07": {"affiliates": 1, "conversions": 1}, "2026-08": {"affiliates": 11, "conversions": 37}, "2026-09": {"affiliates": 9, "conversions": 11}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 10, "conversions": 25}, "2025-03": {"affiliates": 16, "conversions": 52}, "2025-04": {"affiliates": 21, "conversions": 97}, "2025-05": {"affiliates": 13, "conversions": 81}, "2025-06": {"affiliates": 16, "conversions": 78}, "2025-07": {"affiliates": 11, "conversions": 77}, "2025-08": {"affiliates": 16, "conversions": 71}, "2025-09": {"affiliates": 16, "conversions": 56}, "2025-10": {"affiliates": 10, "conversions": 42}, "2025-11": {"affiliates": 8, "conversions": 42}, "2025-12": {"affiliates": 10, "conversions": 51}, "2026-01": {"affiliates": 11, "conversions": 41}, "2026-02": {"affiliates": 12, "conversions": 28}, "2026-03": {"affiliates": 8, "conversions": 11}, "2026-04": {"affiliates": 9, "conversions": 28}, "2026-05": {"affiliates": 12, "conversions": 22}, "2026-06": {"affiliates": 13, "conversions": 31}, "2026-07": {"affiliates": 5, "conversions": 30}, "2026-08": {"affiliates": 4, "conversions": 22}, "2026-09": {"affiliates": 7, "conversions": 21}}}, "Guillermo Luna": {"New-Join Activation": {"2025-01": {"affiliates": 1, "conversions": 1}, "2025-02": {"affiliates": 2, "conversions": 2}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 1, "conversions": 1}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 2, "conversions": 2}, "2025-11": {"affiliates": 1, "conversions": 1}, "2025-12": {"affiliates": 1, "conversions": 1}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 1, "conversions": 1}, "2026-03": {"affiliates": 1, "conversions": 1}, "2026-04": {"affiliates": 2, "conversions": 2}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 1, "conversions": 2}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 1, "conversions": 1}, "2025-05": {"affiliates": 1, "conversions": 2}, "2025-06": {"affiliates": 4, "conversions": 4}, "2025-07": {"affiliates": 3, "conversions": 3}, "2025-08": {"affiliates": 3, "conversions": 3}, "2025-09": {"affiliates": 4, "conversions": 5}, "2025-10": {"affiliates": 1, "conversions": 1}, "2025-11": {"affiliates": 2, "conversions": 3}, "2025-12": {"affiliates": 2, "conversions": 3}, "2026-01": {"affiliates": 1, "conversions": 1}, "2026-02": {"affiliates": 6, "conversions": 6}, "2026-03": {"affiliates": 3, "conversions": 3}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 2, "conversions": 2}, "2026-07": {"affiliates": 1, "conversions": 1}, "2026-08": {"affiliates": 2, "conversions": 2}, "2026-09": {"affiliates": 2, "conversions": 2}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 7, "conversions": 7}, "2025-03": {"affiliates": 8, "conversions": 8}, "2025-04": {"affiliates": 4, "conversions": 4}, "2025-05": {"affiliates": 7, "conversions": 8}, "2025-06": {"affiliates": 3, "conversions": 3}, "2025-07": {"affiliates": 6, "conversions": 6}, "2025-08": {"affiliates": 2, "conversions": 2}, "2025-09": {"affiliates": 3, "conversions": 3}, "2025-10": {"affiliates": 3, "conversions": 3}, "2025-11": {"affiliates": 3, "conversions": 3}, "2025-12": {"affiliates": 4, "conversions": 4}, "2026-01": {"affiliates": 8, "conversions": 8}, "2026-02": {"affiliates": 4, "conversions": 4}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 1, "conversions": 1}, "2026-05": {"affiliates": 1, "conversions": 1}, "2026-06": {"affiliates": 2, "conversions": 2}, "2026-07": {"affiliates": 4, "conversions": 4}, "2026-08": {"affiliates": 5, "conversions": 6}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 4, "conversions": 5}, "2025-03": {"affiliates": 1, "conversions": 2}, "2025-04": {"affiliates": 1, "conversions": 2}, "2025-05": {"affiliates": 2, "conversions": 2}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 2, "conversions": 2}, "2025-09": {"affiliates": 1, "conversions": 1}, "2025-10": {"affiliates": 2, "conversions": 2}, "2025-11": {"affiliates": 1, "conversions": 1}, "2025-12": {"affiliates": 1, "conversions": 1}, "2026-01": {"affiliates": 1, "conversions": 1}, "2026-02": {"affiliates": 1, "conversions": 1}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}}, "Hassaan Zaheer": {"New-Join Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 1, "conversions": 1}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 1, "conversions": 1}, "2025-07": {"affiliates": 1, "conversions": 1}, "2025-08": {"affiliates": 1, "conversions": 1}, "2025-09": {"affiliates": 1, "conversions": 1}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 1, "conversions": 5}, "2025-12": {"affiliates": 1, "conversions": 1}, "2026-01": {"affiliates": 4, "conversions": 18}, "2026-02": {"affiliates": 1, "conversions": 1}, "2026-03": {"affiliates": 2, "conversions": 2}, "2026-04": {"affiliates": 3, "conversions": 3}, "2026-05": {"affiliates": 1, "conversions": 1}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 3, "conversions": 3}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 6, "conversions": 8}, "2025-04": {"affiliates": 2, "conversions": 3}, "2025-05": {"affiliates": 13, "conversions": 17}, "2025-06": {"affiliates": 9, "conversions": 12}, "2025-07": {"affiliates": 9, "conversions": 10}, "2025-08": {"affiliates": 12, "conversions": 19}, "2025-09": {"affiliates": 8, "conversions": 16}, "2025-10": {"affiliates": 10, "conversions": 16}, "2025-11": {"affiliates": 11, "conversions": 13}, "2025-12": {"affiliates": 9, "conversions": 10}, "2026-01": {"affiliates": 17, "conversions": 23}, "2026-02": {"affiliates": 12, "conversions": 14}, "2026-03": {"affiliates": 11, "conversions": 12}, "2026-04": {"affiliates": 12, "conversions": 14}, "2026-05": {"affiliates": 13, "conversions": 38}, "2026-06": {"affiliates": 7, "conversions": 11}, "2026-07": {"affiliates": 8, "conversions": 13}, "2026-08": {"affiliates": 13, "conversions": 15}, "2026-09": {"affiliates": 12, "conversions": 14}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 21, "conversions": 23}, "2025-03": {"affiliates": 20, "conversions": 24}, "2025-04": {"affiliates": 12, "conversions": 12}, "2025-05": {"affiliates": 9, "conversions": 15}, "2025-06": {"affiliates": 12, "conversions": 12}, "2025-07": {"affiliates": 15, "conversions": 15}, "2025-08": {"affiliates": 3, "conversions": 3}, "2025-09": {"affiliates": 10, "conversions": 10}, "2025-10": {"affiliates": 8, "conversions": 8}, "2025-11": {"affiliates": 5, "conversions": 5}, "2025-12": {"affiliates": 10, "conversions": 14}, "2026-01": {"affiliates": 4, "conversions": 4}, "2026-02": {"affiliates": 7, "conversions": 9}, "2026-03": {"affiliates": 5, "conversions": 7}, "2026-04": {"affiliates": 5, "conversions": 5}, "2026-05": {"affiliates": 6, "conversions": 6}, "2026-06": {"affiliates": 2, "conversions": 3}, "2026-07": {"affiliates": 6, "conversions": 7}, "2026-08": {"affiliates": 5, "conversions": 5}, "2026-09": {"affiliates": 6, "conversions": 10}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 13, "conversions": 28}, "2025-03": {"affiliates": 15, "conversions": 34}, "2025-04": {"affiliates": 11, "conversions": 19}, "2025-05": {"affiliates": 7, "conversions": 14}, "2025-06": {"affiliates": 12, "conversions": 22}, "2025-07": {"affiliates": 11, "conversions": 15}, "2025-08": {"affiliates": 9, "conversions": 14}, "2025-09": {"affiliates": 6, "conversions": 10}, "2025-10": {"affiliates": 6, "conversions": 24}, "2025-11": {"affiliates": 7, "conversions": 44}, "2025-12": {"affiliates": 9, "conversions": 24}, "2026-01": {"affiliates": 11, "conversions": 38}, "2026-02": {"affiliates": 10, "conversions": 22}, "2026-03": {"affiliates": 11, "conversions": 22}, "2026-04": {"affiliates": 9, "conversions": 15}, "2026-05": {"affiliates": 8, "conversions": 16}, "2026-06": {"affiliates": 8, "conversions": 15}, "2026-07": {"affiliates": 9, "conversions": 18}, "2026-08": {"affiliates": 7, "conversions": 16}, "2026-09": {"affiliates": 3, "conversions": 8}}}, "Salah Hassan": {"New-Join Activation": {"2025-01": {"affiliates": 1, "conversions": 1}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 2, "conversions": 5}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 3, "conversions": 5}, "2025-06": {"affiliates": 4, "conversions": 15}, "2025-07": {"affiliates": 2, "conversions": 2}, "2025-08": {"affiliates": 1, "conversions": 1}, "2025-09": {"affiliates": 1, "conversions": 1}, "2025-10": {"affiliates": 3, "conversions": 4}, "2025-11": {"affiliates": 4, "conversions": 96}, "2025-12": {"affiliates": 3, "conversions": 3}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 1, "conversions": 1}, "2026-03": {"affiliates": 7, "conversions": 7}, "2026-04": {"affiliates": 2, "conversions": 2}, "2026-05": {"affiliates": 1, "conversions": 2}, "2026-06": {"affiliates": 2, "conversions": 3}, "2026-07": {"affiliates": 4, "conversions": 4}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 6, "conversions": 9}, "2025-04": {"affiliates": 7, "conversions": 11}, "2025-05": {"affiliates": 10, "conversions": 12}, "2025-06": {"affiliates": 9, "conversions": 10}, "2025-07": {"affiliates": 17, "conversions": 22}, "2025-08": {"affiliates": 8, "conversions": 10}, "2025-09": {"affiliates": 10, "conversions": 17}, "2025-10": {"affiliates": 9, "conversions": 11}, "2025-11": {"affiliates": 8, "conversions": 12}, "2025-12": {"affiliates": 18, "conversions": 25}, "2026-01": {"affiliates": 12, "conversions": 17}, "2026-02": {"affiliates": 14, "conversions": 17}, "2026-03": {"affiliates": 14, "conversions": 15}, "2026-04": {"affiliates": 16, "conversions": 29}, "2026-05": {"affiliates": 16, "conversions": 23}, "2026-06": {"affiliates": 12, "conversions": 13}, "2026-07": {"affiliates": 18, "conversions": 19}, "2026-08": {"affiliates": 12, "conversions": 15}, "2026-09": {"affiliates": 11, "conversions": 15}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 22, "conversions": 30}, "2025-03": {"affiliates": 20, "conversions": 20}, "2025-04": {"affiliates": 19, "conversions": 55}, "2025-05": {"affiliates": 16, "conversions": 18}, "2025-06": {"affiliates": 15, "conversions": 40}, "2025-07": {"affiliates": 15, "conversions": 15}, "2025-08": {"affiliates": 8, "conversions": 8}, "2025-09": {"affiliates": 16, "conversions": 19}, "2025-10": {"affiliates": 4, "conversions": 4}, "2025-11": {"affiliates": 14, "conversions": 26}, "2025-12": {"affiliates": 13, "conversions": 14}, "2026-01": {"affiliates": 9, "conversions": 9}, "2026-02": {"affiliates": 8, "conversions": 9}, "2026-03": {"affiliates": 10, "conversions": 11}, "2026-04": {"affiliates": 8, "conversions": 12}, "2026-05": {"affiliates": 7, "conversions": 7}, "2026-06": {"affiliates": 7, "conversions": 8}, "2026-07": {"affiliates": 12, "conversions": 12}, "2026-08": {"affiliates": 5, "conversions": 5}, "2026-09": {"affiliates": 8, "conversions": 10}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 13, "conversions": 46}, "2025-03": {"affiliates": 16, "conversions": 87}, "2025-04": {"affiliates": 12, "conversions": 77}, "2025-05": {"affiliates": 17, "conversions": 104}, "2025-06": {"affiliates": 15, "conversions": 97}, "2025-07": {"affiliates": 19, "conversions": 158}, "2025-08": {"affiliates": 21, "conversions": 167}, "2025-09": {"affiliates": 17, "conversions": 125}, "2025-10": {"affiliates": 17, "conversions": 117}, "2025-11": {"affiliates": 12, "conversions": 127}, "2025-12": {"affiliates": 19, "conversions": 170}, "2026-01": {"affiliates": 14, "conversions": 46}, "2026-02": {"affiliates": 10, "conversions": 39}, "2026-03": {"affiliates": 10, "conversions": 21}, "2026-04": {"affiliates": 10, "conversions": 53}, "2026-05": {"affiliates": 13, "conversions": 83}, "2026-06": {"affiliates": 12, "conversions": 121}, "2026-07": {"affiliates": 10, "conversions": 57}, "2026-08": {"affiliates": 13, "conversions": 58}, "2026-09": {"affiliates": 8, "conversions": 76}}}, "Shoaib Ikram": {"New-Join Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 1, "conversions": 2}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 1, "conversions": 1}, "2025-06": {"affiliates": 2, "conversions": 4}, "2025-07": {"affiliates": 1, "conversions": 1}, "2025-08": {"affiliates": 3, "conversions": 4}, "2025-09": {"affiliates": 1, "conversions": 2}, "2025-10": {"affiliates": 1, "conversions": 1}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 1, "conversions": 2}, "2026-01": {"affiliates": 1, "conversions": 1}, "2026-02": {"affiliates": 1, "conversions": 1}, "2026-03": {"affiliates": 2, "conversions": 4}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 2, "conversions": 2}, "2026-06": {"affiliates": 1, "conversions": 1}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 2, "conversions": 2}, "2026-09": {"affiliates": 3, "conversions": 5}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 2, "conversions": 3}, "2025-03": {"affiliates": 1, "conversions": 4}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 1, "conversions": 1}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 1, "conversions": 8}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 5, "conversions": 108}, "2025-03": {"affiliates": 6, "conversions": 118}, "2025-04": {"affiliates": 7, "conversions": 113}, "2025-05": {"affiliates": 5, "conversions": 80}, "2025-06": {"affiliates": 6, "conversions": 81}, "2025-07": {"affiliates": 5, "conversions": 95}, "2025-08": {"affiliates": 6, "conversions": 88}, "2025-09": {"affiliates": 7, "conversions": 76}, "2025-10": {"affiliates": 8, "conversions": 75}, "2025-11": {"affiliates": 8, "conversions": 85}, "2025-12": {"affiliates": 8, "conversions": 77}, "2026-01": {"affiliates": 8, "conversions": 96}, "2026-02": {"affiliates": 7, "conversions": 85}, "2026-03": {"affiliates": 8, "conversions": 106}, "2026-04": {"affiliates": 7, "conversions": 76}, "2026-05": {"affiliates": 7, "conversions": 45}, "2026-06": {"affiliates": 6, "conversions": 51}, "2026-07": {"affiliates": 5, "conversions": 50}, "2026-08": {"affiliates": 3, "conversions": 38}, "2026-09": {"affiliates": 3, "conversions": 25}}}, "Syed Muhammad Faizan": {"New-Join Activation": {"2025-01": {"affiliates": 5, "conversions": 5}, "2025-02": {"affiliates": 2, "conversions": 2}, "2025-03": {"affiliates": 1, "conversions": 9}, "2025-04": {"affiliates": 1, "conversions": 1}, "2025-05": {"affiliates": 1, "conversions": 1}, "2025-06": {"affiliates": 1, "conversions": 2}, "2025-07": {"affiliates": 1, "conversions": 1}, "2025-08": {"affiliates": 1, "conversions": 1}, "2025-09": {"affiliates": 2, "conversions": 3}, "2025-10": {"affiliates": 4, "conversions": 5}, "2025-11": {"affiliates": 3, "conversions": 6}, "2025-12": {"affiliates": 1, "conversions": 14}, "2026-01": {"affiliates": 2, "conversions": 5}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 1, "conversions": 1}, "2026-05": {"affiliates": 3, "conversions": 3}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 1, "conversions": 1}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 1, "conversions": 1}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 2, "conversions": 15}, "2025-04": {"affiliates": 7, "conversions": 7}, "2025-05": {"affiliates": 6, "conversions": 8}, "2025-06": {"affiliates": 10, "conversions": 16}, "2025-07": {"affiliates": 7, "conversions": 8}, "2025-08": {"affiliates": 8, "conversions": 9}, "2025-09": {"affiliates": 14, "conversions": 14}, "2025-10": {"affiliates": 13, "conversions": 18}, "2025-11": {"affiliates": 14, "conversions": 15}, "2025-12": {"affiliates": 15, "conversions": 20}, "2026-01": {"affiliates": 12, "conversions": 12}, "2026-02": {"affiliates": 19, "conversions": 27}, "2026-03": {"affiliates": 15, "conversions": 20}, "2026-04": {"affiliates": 10, "conversions": 14}, "2026-05": {"affiliates": 22, "conversions": 24}, "2026-06": {"affiliates": 11, "conversions": 11}, "2026-07": {"affiliates": 10, "conversions": 12}, "2026-08": {"affiliates": 5, "conversions": 8}, "2026-09": {"affiliates": 7, "conversions": 10}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 31, "conversions": 33}, "2025-03": {"affiliates": 18, "conversions": 28}, "2025-04": {"affiliates": 15, "conversions": 16}, "2025-05": {"affiliates": 21, "conversions": 30}, "2025-06": {"affiliates": 11, "conversions": 13}, "2025-07": {"affiliates": 12, "conversions": 13}, "2025-08": {"affiliates": 21, "conversions": 23}, "2025-09": {"affiliates": 9, "conversions": 10}, "2025-10": {"affiliates": 6, "conversions": 6}, "2025-11": {"affiliates": 12, "conversions": 12}, "2025-12": {"affiliates": 15, "conversions": 16}, "2026-01": {"affiliates": 4, "conversions": 4}, "2026-02": {"affiliates": 6, "conversions": 6}, "2026-03": {"affiliates": 5, "conversions": 6}, "2026-04": {"affiliates": 12, "conversions": 18}, "2026-05": {"affiliates": 7, "conversions": 7}, "2026-06": {"affiliates": 6, "conversions": 6}, "2026-07": {"affiliates": 4, "conversions": 4}, "2026-08": {"affiliates": 4, "conversions": 4}, "2026-09": {"affiliates": 9, "conversions": 10}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 7, "conversions": 19}, "2025-03": {"affiliates": 9, "conversions": 17}, "2025-04": {"affiliates": 12, "conversions": 46}, "2025-05": {"affiliates": 9, "conversions": 14}, "2025-06": {"affiliates": 11, "conversions": 15}, "2025-07": {"affiliates": 10, "conversions": 36}, "2025-08": {"affiliates": 9, "conversions": 53}, "2025-09": {"affiliates": 10, "conversions": 36}, "2025-10": {"affiliates": 12, "conversions": 46}, "2025-11": {"affiliates": 11, "conversions": 42}, "2025-12": {"affiliates": 13, "conversions": 77}, "2026-01": {"affiliates": 10, "conversions": 28}, "2026-02": {"affiliates": 8, "conversions": 28}, "2026-03": {"affiliates": 7, "conversions": 39}, "2026-04": {"affiliates": 4, "conversions": 26}, "2026-05": {"affiliates": 6, "conversions": 14}, "2026-06": {"affiliates": 7, "conversions": 24}, "2026-07": {"affiliates": 6, "conversions": 23}, "2026-08": {"affiliates": 5, "conversions": 16}, "2026-09": {"affiliates": 4, "conversions": 27}}}, "Umair Qureshi": {"New-Join Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 1, "conversions": 1}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 1, "conversions": 2}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 1, "conversions": 1}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 1, "conversions": 2}, "2026-03": {"affiliates": 1, "conversions": 1}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 2, "conversions": 2}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 1, "conversions": 1}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 1, "conversions": 2}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 1, "conversions": 6}, "2025-04": {"affiliates": 2, "conversions": 6}, "2025-05": {"affiliates": 1, "conversions": 5}, "2025-06": {"affiliates": 1, "conversions": 2}, "2025-07": {"affiliates": 1, "conversions": 7}, "2025-08": {"affiliates": 1, "conversions": 4}, "2025-09": {"affiliates": 1, "conversions": 1}, "2025-10": {"affiliates": 1, "conversions": 2}, "2025-11": {"affiliates": 1, "conversions": 4}, "2025-12": {"affiliates": 1, "conversions": 3}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}}, "Usman Dar": {"New-Join Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 0, "conversions": 0}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 1, "conversions": 1}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 1, "conversions": 1}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 1, "conversions": 2}, "2025-04": {"affiliates": 0, "conversions": 0}, "2025-05": {"affiliates": 0, "conversions": 0}, "2025-06": {"affiliates": 0, "conversions": 0}, "2025-07": {"affiliates": 0, "conversions": 0}, "2025-08": {"affiliates": 0, "conversions": 0}, "2025-09": {"affiliates": 0, "conversions": 0}, "2025-10": {"affiliates": 0, "conversions": 0}, "2025-11": {"affiliates": 0, "conversions": 0}, "2025-12": {"affiliates": 0, "conversions": 0}, "2026-01": {"affiliates": 0, "conversions": 0}, "2026-02": {"affiliates": 0, "conversions": 0}, "2026-03": {"affiliates": 0, "conversions": 0}, "2026-04": {"affiliates": 0, "conversions": 0}, "2026-05": {"affiliates": 0, "conversions": 0}, "2026-06": {"affiliates": 0, "conversions": 0}, "2026-07": {"affiliates": 0, "conversions": 0}, "2026-08": {"affiliates": 0, "conversions": 0}, "2026-09": {"affiliates": 0, "conversions": 0}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 1, "conversions": 26}, "2025-03": {"affiliates": 1, "conversions": 33}, "2025-04": {"affiliates": 2, "conversions": 20}, "2025-05": {"affiliates": 2, "conversions": 22}, "2025-06": {"affiliates": 2, "conversions": 22}, "2025-07": {"affiliates": 2, "conversions": 15}, "2025-08": {"affiliates": 2, "conversions": 28}, "2025-09": {"affiliates": 2, "conversions": 9}, "2025-10": {"affiliates": 1, "conversions": 16}, "2025-11": {"affiliates": 1, "conversions": 6}, "2025-12": {"affiliates": 1, "conversions": 15}, "2026-01": {"affiliates": 1, "conversions": 57}, "2026-02": {"affiliates": 1, "conversions": 55}, "2026-03": {"affiliates": 1, "conversions": 37}, "2026-04": {"affiliates": 1, "conversions": 32}, "2026-05": {"affiliates": 1, "conversions": 58}, "2026-06": {"affiliates": 1, "conversions": 39}, "2026-07": {"affiliates": 1, "conversions": 65}, "2026-08": {"affiliates": 1, "conversions": 30}, "2026-09": {"affiliates": 1, "conversions": 24}}}, "All Managers": {"New-Join Activation": {"2025-01": {"affiliates": 7, "conversions": 7}, "2025-02": {"affiliates": 7, "conversions": 7}, "2025-03": {"affiliates": 5, "conversions": 24}, "2025-04": {"affiliates": 2, "conversions": 19}, "2025-05": {"affiliates": 5, "conversions": 8}, "2025-06": {"affiliates": 9, "conversions": 24}, "2025-07": {"affiliates": 10, "conversions": 18}, "2025-08": {"affiliates": 4, "conversions": 4}, "2025-09": {"affiliates": 5, "conversions": 6}, "2025-10": {"affiliates": 11, "conversions": 13}, "2025-11": {"affiliates": 12, "conversions": 111}, "2025-12": {"affiliates": 8, "conversions": 25}, "2026-01": {"affiliates": 9, "conversions": 29}, "2026-02": {"affiliates": 6, "conversions": 6}, "2026-03": {"affiliates": 12, "conversions": 13}, "2026-04": {"affiliates": 10, "conversions": 12}, "2026-05": {"affiliates": 9, "conversions": 16}, "2026-06": {"affiliates": 3, "conversions": 5}, "2026-07": {"affiliates": 9, "conversions": 10}, "2026-08": {"affiliates": 4, "conversions": 5}, "2026-09": {"affiliates": 3, "conversions": 9}}, "Reactivation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 0, "conversions": 0}, "2025-03": {"affiliates": 22, "conversions": 44}, "2025-04": {"affiliates": 24, "conversions": 31}, "2025-05": {"affiliates": 38, "conversions": 50}, "2025-06": {"affiliates": 47, "conversions": 62}, "2025-07": {"affiliates": 51, "conversions": 65}, "2025-08": {"affiliates": 46, "conversions": 61}, "2025-09": {"affiliates": 59, "conversions": 85}, "2025-10": {"affiliates": 45, "conversions": 59}, "2025-11": {"affiliates": 46, "conversions": 66}, "2025-12": {"affiliates": 58, "conversions": 136}, "2026-01": {"affiliates": 59, "conversions": 74}, "2026-02": {"affiliates": 66, "conversions": 83}, "2026-03": {"affiliates": 67, "conversions": 91}, "2026-04": {"affiliates": 55, "conversions": 79}, "2026-05": {"affiliates": 69, "conversions": 106}, "2026-06": {"affiliates": 41, "conversions": 47}, "2026-07": {"affiliates": 49, "conversions": 61}, "2026-08": {"affiliates": 47, "conversions": 57}, "2026-09": {"affiliates": 50, "conversions": 76}}, "Lifetime-Dead Activation": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 118, "conversions": 141}, "2025-03": {"affiliates": 101, "conversions": 256}, "2025-04": {"affiliates": 67, "conversions": 123}, "2025-05": {"affiliates": 65, "conversions": 84}, "2025-06": {"affiliates": 58, "conversions": 87}, "2025-07": {"affiliates": 66, "conversions": 74}, "2025-08": {"affiliates": 44, "conversions": 47}, "2025-09": {"affiliates": 51, "conversions": 62}, "2025-10": {"affiliates": 34, "conversions": 34}, "2025-11": {"affiliates": 44, "conversions": 58}, "2025-12": {"affiliates": 59, "conversions": 69}, "2026-01": {"affiliates": 38, "conversions": 40}, "2026-02": {"affiliates": 31, "conversions": 34}, "2026-03": {"affiliates": 30, "conversions": 35}, "2026-04": {"affiliates": 33, "conversions": 44}, "2026-05": {"affiliates": 27, "conversions": 27}, "2026-06": {"affiliates": 23, "conversions": 26}, "2026-07": {"affiliates": 27, "conversions": 28}, "2026-08": {"affiliates": 30, "conversions": 57}, "2026-09": {"affiliates": 32, "conversions": 41}}, "Retained / Continuously Active": {"2025-01": {"affiliates": 0, "conversions": 0}, "2025-02": {"affiliates": 53, "conversions": 257}, "2025-03": {"affiliates": 65, "conversions": 349}, "2025-04": {"affiliates": 68, "conversions": 380}, "2025-05": {"affiliates": 56, "conversions": 322}, "2025-06": {"affiliates": 63, "conversions": 317}, "2025-07": {"affiliates": 59, "conversions": 403}, "2025-08": {"affiliates": 66, "conversions": 427}, "2025-09": {"affiliates": 60, "conversions": 314}, "2025-10": {"affiliates": 57, "conversions": 324}, "2025-11": {"affiliates": 49, "conversions": 351}, "2025-12": {"affiliates": 62, "conversions": 418}, "2026-01": {"affiliates": 56, "conversions": 307}, "2026-02": {"affiliates": 49, "conversions": 258}, "2026-03": {"affiliates": 45, "conversions": 236}, "2026-04": {"affiliates": 40, "conversions": 230}, "2026-05": {"affiliates": 47, "conversions": 238}, "2026-06": {"affiliates": 47, "conversions": 281}, "2026-07": {"affiliates": 36, "conversions": 243}, "2026-08": {"affiliates": 33, "conversions": 180}, "2026-09": {"affiliates": 26, "conversions": 181}}}}, "totals": {"All Managers": {"New-Join Activation": {"affiliates": 150, "conversions": 371}, "Reactivation": {"affiliates": 939, "conversions": 1333}, "Lifetime-Dead Activation": {"affiliates": 978, "conversions": 1367}, "Retained / Continuously Active": {"affiliates": 1037, "conversions": 6016}}, "Faizan Shaheen": {"New-Join Activation": {"affiliates": 44, "conversions": 105}, "Reactivation": {"affiliates": 240, "conversions": 398}, "Lifetime-Dead Activation": {"affiliates": 261, "conversions": 476}, "Retained / Continuously Active": {"affiliates": 228, "conversions": 906}}, "Guillermo Luna": {"New-Join Activation": {"affiliates": 13, "conversions": 14}, "Reactivation": {"affiliates": 38, "conversions": 42}, "Lifetime-Dead Activation": {"affiliates": 75, "conversions": 77}, "Retained / Continuously Active": {"affiliates": 17, "conversions": 20}}, "Hassaan Zaheer": {"New-Join Activation": {"affiliates": 21, "conversions": 39}, "Reactivation": {"affiliates": 194, "conversions": 278}, "Lifetime-Dead Activation": {"affiliates": 171, "conversions": 197}, "Retained / Continuously Active": {"affiliates": 182, "conversions": 418}}, "Salah Hassan": {"New-Join Activation": {"affiliates": 41, "conversions": 152}, "Reactivation": {"affiliates": 227, "conversions": 302}, "Lifetime-Dead Activation": {"affiliates": 236, "conversions": 332}, "Retained / Continuously Active": {"affiliates": 278, "conversions": 1829}}, "Shoaib Ikram": {"New-Join Activation": {"affiliates": 0, "conversions": 0}, "Reactivation": {"affiliates": 23, "conversions": 33}, "Lifetime-Dead Activation": {"affiliates": 5, "conversions": 16}, "Retained / Continuously Active": {"affiliates": 125, "conversions": 1568}}, "Syed Muhammad Faizan": {"New-Join Activation": {"affiliates": 31, "conversions": 61}, "Reactivation": {"affiliates": 207, "conversions": 268}, "Lifetime-Dead Activation": {"affiliates": 228, "conversions": 265}, "Retained / Continuously Active": {"affiliates": 170, "conversions": 626}}, "Umair Qureshi": {"New-Join Activation": {"affiliates": 0, "conversions": 0}, "Reactivation": {"affiliates": 8, "conversions": 10}, "Lifetime-Dead Activation": {"affiliates": 1, "conversions": 2}, "Retained / Continuously Active": {"affiliates": 11, "conversions": 40}}, "Usman Dar": {"New-Join Activation": {"affiliates": 0, "conversions": 0}, "Reactivation": {"affiliates": 2, "conversions": 2}, "Lifetime-Dead Activation": {"affiliates": 1, "conversions": 2}, "Retained / Continuously Active": {"affiliates": 26, "conversions": 609}}}, "unmatched_monthly": {"2025-01": {"affiliates": 100, "conversions": 280}, "2025-02": {"affiliates": 119, "conversions": 329}, "2025-03": {"affiliates": 115, "conversions": 427}, "2025-04": {"affiliates": 97, "conversions": 385}, "2025-05": {"affiliates": 102, "conversions": 363}, "2025-06": {"affiliates": 97, "conversions": 306}, "2025-07": {"affiliates": 99, "conversions": 288}, "2025-08": {"affiliates": 98, "conversions": 303}, "2025-09": {"affiliates": 102, "conversions": 304}, "2025-10": {"affiliates": 80, "conversions": 237}, "2025-11": {"affiliates": 88, "conversions": 308}, "2025-12": {"affiliates": 94, "conversions": 342}, "2026-01": {"affiliates": 86, "conversions": 295}, "2026-02": {"affiliates": 80, "conversions": 244}, "2026-03": {"affiliates": 74, "conversions": 230}, "2026-04": {"affiliates": 86, "conversions": 274}, "2026-05": {"affiliates": 77, "conversions": 315}, "2026-06": {"affiliates": 79, "conversions": 330}, "2026-07": {"affiliates": 78, "conversions": 329}, "2026-08": {"affiliates": 76, "conversions": 298}, "2026-09": {"affiliates": 72, "conversions": 280}}, "unmatched_total": {"affiliates": 706, "conversions": 6467}};
+const SEGMENTS = DATA.segments;
+const MONTHS = DATA.months;
+const SEG_KEYS = { 'New-Join Activation':'new', 'Reactivation':'react', 'Lifetime-Dead Activation':'dead', 'Retained / Continuously Active':'retained' };
+const SEG_COLORS = { 'New-Join Activation':'#2F6F62', 'Reactivation':'#B5842B', 'Lifetime-Dead Activation':'#7C3F58', 'Retained / Continuously Active':'#2E5C8A' };
+const SEG_LABELS = { 'New-Join Activation':'New-Join', 'Reactivation':'Reactivation', 'Lifetime-Dead Activation':'Life-Dead', 'Retained / Continuously Active':'Retained' };
+
+let currentManager = 'All Managers';
+let currentMetric = 'affiliates';
+let chart = null;
+
+function monthLabel(m){
+  const [y,mo] = m.split('-');
+  const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return names[parseInt(mo,10)-1] + " '" + y.slice(2);
+}
+
+function buildRoster(){
+  const el = document.getElementById('roster');
+  el.innerHTML = '';
+  DATA.managers.forEach(mgr=>{
+    const totals = DATA.totals[mgr];
+    const affSum = SEGMENTS.reduce((s,seg)=>s+totals[seg].affiliates,0);
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (mgr===currentManager?' active':'');
+    chip.innerHTML = `<span class="dot"></span>${mgr}<span class="n">${affSum}</span>`;
+    chip.onclick = ()=>{ currentManager = mgr; render(); };
+    el.appendChild(chip);
+  });
+}
+
+function buildCards(){
+  const el = document.getElementById('cards');
+  const totals = DATA.totals[currentManager];
+  const descs = {
+    'New-Join Activation':'Joined and converted in the same month.',
+    'Reactivation':'Converted before, quiet one month, converted again.',
+    'Lifetime-Dead Activation':'Joined earlier, converted for the very first time.',
+    'Retained / Continuously Active':'Converted last month and this month too.'
+  };
+  el.innerHTML = '';
+  SEGMENTS.forEach(seg=>{
+    const cls = SEG_KEYS[seg];
+    const t = totals[seg];
+    const card = document.createElement('div');
+    card.className = 'card ' + cls;
+    card.innerHTML = `
+      <div class="label">${seg.toUpperCase()}</div>
+      <div class="desc">${descs[seg]}</div>
+      <div class="figs">
+        <div><span class="num">${t.affiliates.toLocaleString()}</span><span class="num-label">affiliates</span></div>
+        <div><span class="num">${t.conversions.toLocaleString()}</span><span class="num-label">conversions</span></div>
+      </div>`;
+    el.appendChild(card);
+  });
+}
+
+function buildUnmatchedStrip(){
+  const el = document.getElementById('unmatched-strip');
+  const t = DATA.unmatched_total;
+  el.innerHTML = `<span>Additionally, <b>${t.affiliates.toLocaleString()} affiliates</b> converted (<b>${t.conversions.toLocaleString()} conversions</b> total) with <b>no profile record at all</b> — join date unknown, so they can't be placed on this board or attributed to a manager.</span>`;
+}
+
+function buildChart(){
+  const ctx = document.getElementById('trendChart');
+  const datasets = SEGMENTS.map(seg=>({
+    label: SEG_LABELS[seg],
+    data: MONTHS.map(m => DATA.data[currentManager][seg][m][currentMetric]),
+    borderColor: SEG_COLORS[seg],
+    backgroundColor: SEG_COLORS[seg] + '33',
+    tension: 0.3, pointRadius: 2.5, pointHoverRadius: 5, borderWidth: 2, fill: false
+  }));
+  const cfg = {
+    type: 'line',
+    data: { labels: MONTHS.map(monthLabel), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display:false },
+        tooltip: { backgroundColor:'#1E2A33', titleFont:{family:"'IBM Plex Mono', monospace", size:11}, bodyFont:{family:"'IBM Plex Mono', monospace", size:11}, padding:10, cornerRadius:3 }
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:10}, color:'#5B6670'} },
+        y: { beginAtZero:true, grid:{color:'#DAD4C4'}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:10}, color:'#5B6670', precision:0} }
+      }
+    }
+  };
+  if(chart){ chart.destroy(); }
+  chart = new Chart(ctx, cfg);
+  document.getElementById('chart-title').textContent =
+    (currentManager==='All Managers' ? 'Monthly trend — all managers' : 'Monthly trend — ' + currentManager)
+    + ' · ' + (currentMetric==='affiliates' ? 'affiliate count' : 'conversion count');
+}
+
+function buildTable(){
+  const body = document.getElementById('detail-body');
+  body.innerHTML = '';
+  let sums = {new_a:0,new_c:0,react_a:0,react_c:0,dead_a:0,dead_c:0,ret_a:0,ret_c:0};
+  MONTHS.forEach(m=>{
+    const d = DATA.data[currentManager];
+    const na = d['New-Join Activation'][m].affiliates, nc = d['New-Join Activation'][m].conversions;
+    const ra = d['Reactivation'][m].affiliates, rc = d['Reactivation'][m].conversions;
+    const da = d['Lifetime-Dead Activation'][m].affiliates, dc = d['Lifetime-Dead Activation'][m].conversions;
+    const ka = d['Retained / Continuously Active'][m].affiliates, kc = d['Retained / Continuously Active'][m].conversions;
+    sums.new_a+=na; sums.new_c+=nc; sums.react_a+=ra; sums.react_c+=rc; sums.dead_a+=da; sums.dead_c+=dc; sums.ret_a+=ka; sums.ret_c+=kc;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${monthLabel(m)}</td>
+      <td class="seg-new">${na}</td><td class="seg-new">${nc}</td>
+      <td class="seg-react">${ra}</td><td class="seg-react">${rc}</td>
+      <td class="seg-dead">${da}</td><td class="seg-dead">${dc}</td>
+      <td class="seg-retained">${ka}</td><td class="seg-retained">${kc}</td>
+      <td>${na+ra+da+ka}</td><td>${nc+rc+dc+kc}</td>`;
+    body.appendChild(tr);
+  });
+  const totalRow = document.createElement('tr');
+  totalRow.className = 'total-row';
+  totalRow.innerHTML = `<td>Total</td>
+    <td class="seg-new">${sums.new_a}</td><td class="seg-new">${sums.new_c}</td>
+    <td class="seg-react">${sums.react_a}</td><td class="seg-react">${sums.react_c}</td>
+    <td class="seg-dead">${sums.dead_a}</td><td class="seg-dead">${sums.dead_c}</td>
+    <td class="seg-retained">${sums.ret_a}</td><td class="seg-retained">${sums.ret_c}</td>
+    <td>${sums.new_a+sums.react_a+sums.dead_a+sums.ret_a}</td><td>${sums.new_c+sums.react_c+sums.dead_c+sums.ret_c}</td>`;
+  body.appendChild(totalRow);
+}
+
+function buildFootnote(){
+  document.getElementById('footnote').innerHTML =
+    `<b>Attribution logic:</b> a directly-assigned manager is used as-is; affiliates on the "Team" queue are attributed by country using the supplied region map (Syed Faizan and Guillermo are merged into Syed Muhammad Faizan and Guillermo Luna respectively — same people, different spellings). ` +
+    `Countries not present in the region map fall into an <b>Unmapped</b> bucket rather than being guessed. ` +
+    `All four segments above are mutually exclusive — no affiliate/month appears twice. ` +
+    `Jan 2025 has no prior-month visibility, so Reactivation/Lifetime-Dead/Retained figures effectively start Feb 2025. ` +
+    `A handful (6 conversions total) of affiliates converted before their recorded join date and are excluded as data anomalies.`;
+}
+
+function render(){
+  buildRoster();
+  buildCards();
+  buildUnmatchedStrip();
+  buildChart();
+  buildTable();
+  buildFootnote();
+}
+
+document.getElementById('metric-toggle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  currentMetric = btn.dataset.metric;
+  document.querySelectorAll('#metric-toggle button').forEach(b=>b.classList.toggle('active', b===btn));
+  buildChart();
+});
+
+render();
+</script>
+</body>
+</html>
